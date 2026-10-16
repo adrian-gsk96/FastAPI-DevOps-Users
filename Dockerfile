@@ -1,22 +1,31 @@
-# 1. Imagen base: Usamos la versión oficial, ligera (slim) y compatible con tu entorno
-FROM python:3.12-slim
+# Usar una imagen ligera de Python
+FROM python:3.11-slim
 
-# 2. Directorio de trabajo: Todo lo que hagamos a partir de aquí será dentro de la carpeta /app del contenedor
+# Evitar que Python genere archivos .pyc y asegurar logs en tiempo real
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# 3. Optimización de caché: Copiamos solo el requirements.txt primero. 
-# Esto evita que Docker reinstale todas las librerías si solo cambiaste un archivo de código.
+# Copiar e instalar dependencias
 COPY requirements.txt .
-
-# 4. Instalación de dependencias: Instalamos sin guardar la caché de pip para reducir el peso final
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Copiar el código: Llevamos tu main.py, la carpeta alembic y alembic.ini hacia el contenedor
+# --- MEDIDAS DE SEGURIDAD ---
+# Crear un usuario y grupo del sistema sin privilegios
+RUN addgroup --system appgroup && adduser --system --group appuser
+
+# Copiar el código del proyecto
 COPY . .
 
-# 6. Exponer puerto: Le indicamos a Docker que el contenedor escuchará tráfico en el puerto 8000
+# Cambiar la propiedad de los archivos al nuevo usuario
+RUN chown -R appuser:appgroup /app
+
+# Instruir a Docker para que use este usuario
+USER appuser
+# -----------------------------
+
 EXPOSE 8000
 
-# 7. Comando de arranque: La instrucción exacta para encender Uvicorn dentro del contenedor.
-# Usamos 0.0.0.0 para que acepte conexiones desde fuera de su propia red interna.
+# Ejecutar el servidor
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
